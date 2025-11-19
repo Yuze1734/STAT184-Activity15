@@ -13,6 +13,8 @@ containing the .qmd file, the .pdf, and the plan from activity #14.
 
 ## Needs:
 
+GitHub.com, GitHub desktop, Rstudio, Activity 14.qmd, Activity-14.pdf
+
 ## Instructions:
 
 1.  Create the new GitHub repository on GitHub.com
@@ -47,6 +49,35 @@ containing the .qmd file, the .pdf, and the plan from activity #14.
 ## Goal:
 
 Create a quarto file that successfully generate a pdf file that contains 
-activities from a few previous activities (#10, #8, #4, #13)
+activities from a few previous activities (#10, #8, #13, #4). The quarto file
+should have a code appendix at the end detailing the creation of all data 
+visualization created:
+
+    Frequency table of pay grades and gender in Navy
+    Popularity of Names of My Roommates Over Time
+    Plot of Box Volume With Variable Excess
+    
+The generated pdf should also contain a section reflecting on what I've
+learned so far in the course.
 
 ## Needs:
+
+Activity #8.R, Activity #10.R, Activity #4.R, Activity #13.R, Rstudio, Tidyverse
+Quarto
+
+## Instructions:
+
+1. Create a Quarto file that outputs type pdf
+
+2. Write in a YAML header that including:
+
+    a. Include title, author, date, and date modified
+    
+    b. Include format (pdf), no table of contents, and 1 inch margins
+    
+    c. Set echo to false, warning to false, error to false
+    
+3. Create section Armed Forces Data Wrangling Redux
+
+    a. 
+

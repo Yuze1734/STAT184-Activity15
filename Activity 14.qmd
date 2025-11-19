@@ -118,7 +118,7 @@ Afterwards, we can create the frequency table using the kableExtra package on a 
 
 ```{r}
 #| label: tbl-frequency-navy
-#| tbl-cap: "Frequency table of paygrades and gender in Navy"
+#| tbl-cap: "Frequency table of pay grades and gender in Navy"
 
 # Generating the table for Section 1 ----
 # Load all needed packages for table creation ----
@@ -156,7 +156,7 @@ The goal is to create a data visualization that describes the popularity of diff
 
 ```{r}
 #| label: fig-popularity-trend
-#| fig-cap: "Popularity of Names of My Roomate Over Time"
+#| fig-cap: "Popularity of Names of My Roommates Over Time"
 
 # Generating the figure for name popularity trend for section 2 ----
 # Load tidyverse package ----
