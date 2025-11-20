@@ -1,0 +1,251 @@
+---
+title: "Activity 14"
+author: "Yuze Wang"
+date: "Nov. 7, 2025"
+date-modified: now
+format:
+  pdf:
+    toc: false
+    number-sections: true
+    fig-align: center
+    cap-location: top
+    geometry: margin=1in
+execute:
+  echo: false
+  warning: false
+  error: false
+
+---
+
+# Armed Forces Data Wrangling Redux (Activities #08 and #10)
+
+The goal is to create a frequency table using data describing the US army sectors and their pay grades.
+
+First, we need to web scrape the correct data (see code appendix).
+
+```{r}
+#| label: army-data-scraping
+
+# Scraping Data for section 1 ----
+#load needed packages to data scrape and data wrangle ----
+library(googlesheets4)
+library(rvest)
+library(tidyverse)
+gs4_deauth()
+
+# Reading the google sheets data for armed forces ----
+url <- paste0(
+  "https://docs.google.com/spreadsheets/d/",
+  "19xQnI1cBh6Jkw7eP8YQuuicMlVDF7Gr-nXCb5qbwb_E/",
+  "edit?gid=597536282#gid=597536282"
+)
+Armed_Forces_raw <- read_sheet(ss = url,
+                               sheet = 'Sheet1',
+                               range = 'A3:S29',
+                               na = c('', 'N/A*'))
+
+# Reading the data for pay grade for each sector fo the military ----
+repo = "https://neilhatfield.github.io/Stat184_PayGradeRanks.html"
+Comparative_Pay_tables <- read_html(repo) |>
+  html_elements(css = "table") |>
+  html_table()
+
+```
+
+Then, using the scraped data, the data is wrangled to where a case is an individual, this will help converting it into a frequency table with percentages (see code appendix).
+
+```{r}
+#| label: army-data-wrangling
+
+# Wrangling data for Section 1 ----
+# Creating Armed Forces df ----
+Armed_Forces_clean <- Armed_Forces_raw[-c(10, 16), -c(17, 18)] |>
+  select(-contains('Total')) |>
+  rename(
+    'pay_grade' = `Pay Grade`,
+    'Army.Male' = `Male...2`,
+    'Army.Female' = `Female...3`,
+    'Navy.Male' = `Male...5`,
+    'Navy.Female' = `Female...6`,
+    'Marine_Corp.Male' = `Male...8`,
+    'Marine_Corp.Female' = `Female...9`,
+    'Air_Force.Male' = `Male...11`,
+    'Air_Force.Female' = `Female...12`,
+    'Space_Force.Male' = `Male...14`,
+    'Space_Force.Female' = `Female...15`
+  ) |>
+  pivot_longer(
+    cols = Army.Male:Space_Force.Female,
+    names_to = 'gender',
+    values_to = 'count'
+  ) |>
+  separate_wider_delim(
+    cols = 'gender',
+    delim = '.',
+    names = c('army_sector', 'gender')
+  )
+
+# Creating comparative pay df ----
+Comparative_Pay <- Comparative_Pay_tables[[1]][-c(1, 26), -8]
+names(Comparative_Pay) <- c('Junk',
+                            'pay_grade',
+                            'Army',
+                            'Navy',
+                            'Marine_Corp',
+                            'Air_Force',
+                            'Space_Force')
+
+Comparative_Pay_clean <- Comparative_Pay |>
+  pivot_longer(
+    cols = c('Army', 'Navy', 'Marine_Corp', 'Air_Force', 'Space_Force'),
+    names_to = 'army_sector',
+    values_to = 'rank'
+  ) |>
+  select(-1)
+
+df_individual <- left_join( # Combining the 2 data frames ----
+      x = Comparative_Pay_clean,
+      y = Armed_Forces_clean,
+      by = join_by('pay_grade', 'army_sector'),
+      relationship = 'many-to-many'
+  ) |>
+  filter(!is.na(count)) |> # Uncounting the individuals ----
+  uncount(weights = count)
+
+```
+
+Afterwards, we can create the frequency table using the kableExtra package on a specific subset of the army using the wrangled data. For this example, I will create a frequency table of all pay grades and genders within the navy:
+
+```{r}
+#| label: tbl-frequency-navy
+#| tbl-cap: "Frequency table of pay grades and gender in Navy"
+
+# Generating the table for Section 1 ----
+# Load all needed packages for table creation ----
+library(knitr)
+library(janitor)
+library(kableExtra)
+
+# Convert df_individual into a 2-way frequency table ----
+subset_freq <- df_individual |>
+  filter(army_sector == "Navy") |>
+  tabyl(rank, gender) |>
+  adorn_totals(where = c("row", "col")) |> # Adding a total column and row
+  adorn_percentages(denominator = "all") |> # Adding percentages
+  adorn_pct_formatting(digits = 2) |>
+  adorn_ns(position = "front") |> # Adding the original frequency
+  adorn_title(
+    row_name = "Rank",
+    col_name = "Gender",
+    placement = "combined"
+  )
+
+# Creating the frequency table using kableExtra ----
+subset_freq |>
+  kable()
+
+```
+
+Now that @tbl-frequency-navy has been created, we can use it to draw different conclusion. @tbl-frequency-navy summarizes how individuals within each rank are distributed across gender categories. By converting the raw counts into both frequencies and percentages, the table makes it easier to compare ranks of different sizes. For example, higher enlisted ranks and officer ranks tend to have noticeably smaller totals, while lower enlisted pay grades contain the largest counts in the data set. The addition of both row and column totals also provides a clear overview of overall gender representation within the Navy. Presenting the original frequencies alongside the percentages allows for a more intuitive interpretation of the proportional differences between ranks and genders.
+
+\newpage
+
+# Popularity of Baby Names (Activity #13)
+
+The goal is to create a data visualization that describes the popularity of different names over time. I will pick the names of me and my roommates within the babynames dataset in the dcData package.
+
+```{r}
+#| label: fig-popularity-trend
+#| fig-cap: "Popularity of Names of My Roommates Over Time"
+
+# Generating the figure for name popularity trend for section 2 ----
+# Load tidyverse package ----
+library(tidyverse)
+library(dcData)
+
+# Load babyNames data from dcData ----
+data('BabyNames')
+
+# Perform necessary grouping to get the correctly selected data ----
+#(only data that contains a name)
+selected_names <- BabyNames |>
+  filter(name %in% c('Rowan', 'Kevin', 'Ayaan', 'Robert'))
+
+# Create a framework and map that x = year ----
+ggplot(
+  selected_names,
+  mapping = aes(
+    x = year,
+    y = count,
+    color = name,
+    linetype = name
+  )
+) +
+  geom_smooth(se = FALSE) + # Create a line graph for the 4 names ----
+  labs( # Adjust scales and labels appropriately ----
+    title = 'Popularity of Names of My Roomates Over Time',
+    x = "Years",
+    y = 'Total number of people with name',
+    color = 'Names',
+    linetype = 'Names'
+  )
+
+```
+
+As seen in @fig-popularity-trend, the further back we go in time, the greater the disparity between the popularity of the 4 names. As times goes on, the differences between the frequency of these names are much lower. Historically, Robert was far more popular in earlier decades, especially throughout the mid-20th century. In contrast, names such as Rowan and Ayaan see their growth primarily in more recent years, reflecting modern naming trends. The visualization makes it clear that while the names differ widely in earlier decades, their trajectories converge slightly in more recent years, indicating a narrowing in the popularity gap. This helps illustrate how cultural naming patterns evolve over time.
+
+\newpage
+
+# Plotting a Mathematical Function (Activity #04)
+
+Imagine creating a box with a flat sheet of paper. In order to do so, you would have to cut 4 pieces of excess rectangles at each corner of the paper. For simplicity, we can assume that each side of the rectangle is equal length.
+
+The goal is create a plot that graphs the volume of the box created against the length of the excess square.
+
+```{r}
+#| label: fig-box-volume-plot
+#| fig-cap: "Plot of Box Volume With Variable Excess"
+
+# Defining box volume function and generating figure for section 3 ----
+# Definition the physical function ----
+getBoxVolume <- function(excess, length = 11, width = 8.5) {
+  boxLength = length - (2 * excess)
+  boxWidth = width - (2 * excess)
+  boxVolume = boxLength * boxWidth * excess
+  return(boxVolume)
+}
+
+# Plotting the function ----
+excess_interval <- seq(from = 0, to = 5, by = 0.1)
+plot(
+  x = excess_interval,
+  y = getBoxVolume(excess_interval),
+  type = "l"
+)
+
+```
+
+@fig-box-volume-plot demonstrates the mathematical relationship between the size of the cut-out square (called the “excess”) and the volume of the resulting box formed by folding up the sides. As the excess increases from 0 to 5 inches, the volume at first increases, reaches a maximum, and eventually begins to decline. This pattern highlights the trade-off inherent in the box-making process: cutting out a small square provides only a shallow box, while cutting out too large a square diminishes the base area dramatically. This figure visually confirms the idea that an optimal excess exists—one that balances height and base dimensions to produce the maximum possible volume.
+
+\newpage
+
+# What You Feel You've Learned So Far
+Over the semester in this course, I learned some key insight into the process of working and thinking like a statistician/data scientist: how to read and interrupt data, how to scrape data from the web or other directories, how to wrangle data, how to incorporate writing R code in statistical processes, and how to make my work complete. 
+
+Reflecting over my performance over the semester, I definitely believe that I could have stayed more organized and developed better coding and planning habits like commenting my code or planning in terms of function verbs. In the beginning of the course, I found some problem solving involving code in R to be very tedious and difficult. However, as I progressed through the course, I discovered the importance of exercising critical and computational thinking, drafting up descriptive plans, and considering the practices of open science.
+
+Overall, I find it satisfying that I can perform entry level coding related to data and that I have obtained a way to structure my workflow.
+
+
+\newpage
+
+# Code Appendix
+```{r}
+#| label: codeAppend
+#| ref.label: !expr knitr::all_labels()
+#| echo: true
+#| eval: false
+
+```
+
+
